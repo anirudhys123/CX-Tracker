@@ -1,8 +1,8 @@
 // ============================================================
 //  HARDCODED SUPABASE CREDENTIALS – Replace with your own
 // ============================================================
-const SUPABASE_URL = 'https://dgwdagwqhccxceqpwbsv.supabase.co';      // <-- CHANGE THIS
-const SUPABASE_ANON_KEY = 'sb_publishable_4ppZPRbbipi079J3W5O6aQ_tiXhmcr6';   // <-- CHANGE THIS
+const SUPABASE_URL = 'https://dgwdagwqhccxceqpwbsv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_4ppZPRbbipi079J3W5O6aQ_tiXhmcr6';
 
 // ============================================================
 //  STATE
@@ -10,7 +10,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_4ppZPRbbipi079J3W5O6aQ_tiXhmcr6';   //
 const LEVELS = ['L1', 'L2', 'L3', 'L4'];
 let activeLevel = 'L1';
 let tableData = { L1: [], L2: [], L3: [], L4: [] };
-let supabaseConfig = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY }; // always use hardcoded
+let supabaseConfig = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY };
 
 // Filter state
 let currentPackageFilter = 'all';
@@ -33,11 +33,19 @@ const STATUS_OPTIONS = ['Pending', 'Completed'];
 
 // ─── Init ─────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // No need to load stored config – we always use hardcoded values
   document.getElementById('db-status-label').textContent = 'Supabase';
-  LEVELS.forEach(l => { buildTableHead(l); loadData(l); });
-  updateStats();
-
+  LEVELS.forEach(l => { buildTableHead(l); });
+  
+  // Load all levels asynchronously and update stats after all are loaded
+  let loadedCount = 0;
+  LEVELS.forEach(async (l) => {
+    await loadData(l);
+    loadedCount++;
+    if (loadedCount === LEVELS.length) {
+      updateStats();  // all levels loaded, update stats once
+    }
+  });
+  
   // Filter event listeners
   const packageSelect = document.getElementById('filter-package');
   const levelSelect = document.getElementById('filter-level');
@@ -288,6 +296,7 @@ function loadFromLocalStorage(level) {
       const parsed = JSON.parse(raw);
       tableData[level] = parsed.map((r, i) => ({ ...r, _rid: i + 1 }));
       refreshDisplay();
+      updateStats();
     }
   } catch (e) { console.warn(e); }
 }
@@ -336,6 +345,7 @@ async function loadFromSupabase(level) {
     const data = await res.json();
     tableData[level] = data.map((r, i) => ({ ...r, _rid: i + 1 }));
     refreshDisplay();
+    updateStats(); // immediate update after level loads
   } catch (e) { 
     console.warn(e);
     loadFromLocalStorage(level);
@@ -346,16 +356,14 @@ function sbHeaders(key) {
   return { 'apikey': key, 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 
-// ─── Config modal is now optional – we keep it for override (optional) ──
-// If you want to remove the modal entirely, just delete the modal HTML.
-// The functions below are kept so the modal doesn't cause errors.
+// ─── Config modal stubs ────────────────────────────────────────────
 function openConfigModal() {
   showToast('Supabase is pre‑configured. No changes needed.', 'info');
 }
 function closeConfigModal() {}
 function saveConfig() {}
 function clearConfig() {}
-function loadStoredConfig() {} // not used
+function loadStoredConfig() {}
 
 // ─── Export CSV ────────────────────────────────────────────────────
 function exportCSV() {
