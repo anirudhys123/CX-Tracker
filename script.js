@@ -1,8 +1,16 @@
-// ─── State ─────────────────────────────────────────────────────────────
+// ============================================================
+//  HARDCODED SUPABASE CREDENTIALS – Replace with your own
+// ============================================================
+const SUPABASE_URL = 'https://dgwdagwqhccxceqpwbsv.supabase.co';      // <-- CHANGE THIS
+const SUPABASE_ANON_KEY = 'sb_publishable_4ppZPRbbipi079J3W5O6aQ_tiXhmcr6';   // <-- CHANGE THIS
+
+// ============================================================
+//  STATE
+// ============================================================
 const LEVELS = ['L1', 'L2', 'L3', 'L4'];
 let activeLevel = 'L1';
 let tableData = { L1: [], L2: [], L3: [], L4: [] };
-let supabaseConfig = { url: '', key: '' };
+let supabaseConfig = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY }; // always use hardcoded
 
 // Filter state
 let currentPackageFilter = 'all';
@@ -25,7 +33,8 @@ const STATUS_OPTIONS = ['Pending', 'Completed'];
 
 // ─── Init ─────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadStoredConfig();
+  // No need to load stored config – we always use hardcoded values
+  document.getElementById('db-status-label').textContent = 'Supabase';
   LEVELS.forEach(l => { buildTableHead(l); loadData(l); });
   updateStats();
 
@@ -107,7 +116,7 @@ function deleteRow(level, rid) {
   showToast('Row deleted', 'info');
 }
 
-// ─── Render filtered table (with non-rendering edits) ───────────────
+// ─── Render filtered table (no re-render on edit) ───────────────────
 function refreshDisplay() { applyFiltersAndRender(); }
 
 function applyFiltersAndRender() {
@@ -169,7 +178,6 @@ function renderFilteredTable(level, filteredRows) {
         inp.type = 'text';
         inp.className = 'cell-input';
         inp.value = row[col.key] || '';
-        // Update model without re-rendering
         inp.oninput = (e) => { row[col.key] = e.target.value; };
         td.appendChild(inp);
       } else if (col.type === 'date') {
@@ -204,7 +212,7 @@ function renderFilteredTable(level, filteredRows) {
         sel.onchange = (e) => {
           row[col.key] = e.target.value;
           applyStatusColor(sel, e.target.value);
-          updateStats();   // stats update without re-render
+          updateStats();
         };
         applyStatusColor(sel, row[col.key]);
         td.appendChild(sel);
@@ -246,7 +254,7 @@ function updateStats() {
   document.getElementById('stat-pending').textContent = pending;
 }
 
-// ─── Save / Load (Local Storage) ───────────────────────────────────
+// ─── Save / Load (always try Supabase first, fallback to local) ────
 async function saveData(level) {
   if (supabaseConfig.url && supabaseConfig.key) {
     await saveToSupabase(level);
@@ -284,7 +292,7 @@ function loadFromLocalStorage(level) {
   } catch (e) { console.warn(e); }
 }
 
-// ─── Supabase integration ──────────────────────────────────────────
+// ─── Supabase integration (using hardcoded credentials) ────────────
 async function saveToSupabase(level) {
   const btn = document.querySelector(`#panel-${level} .bottom-bar .btn-primary`);
   if (!btn) return;
@@ -312,7 +320,11 @@ async function saveToSupabase(level) {
       if (!res.ok) throw new Error(await res.text());
     }
     showToast(`${level} saved to Supabase`, 'success');
-  } catch (e) { showToast('Save failed: ' + e.message, 'error'); }
+  } catch (e) { 
+    console.error(e);
+    showToast('Save failed, using local storage', 'error');
+    saveToLocalStorage(level);
+  }
   finally { btn.innerHTML = orig; btn.disabled = false; }
 }
 
@@ -324,45 +336,26 @@ async function loadFromSupabase(level) {
     const data = await res.json();
     tableData[level] = data.map((r, i) => ({ ...r, _rid: i + 1 }));
     refreshDisplay();
-  } catch (e) { loadFromLocalStorage(level); }
+  } catch (e) { 
+    console.warn(e);
+    loadFromLocalStorage(level);
+  }
 }
 
 function sbHeaders(key) {
   return { 'apikey': key, 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 
-// ─── Config modal ──────────────────────────────────────────────────
+// ─── Config modal is now optional – we keep it for override (optional) ──
+// If you want to remove the modal entirely, just delete the modal HTML.
+// The functions below are kept so the modal doesn't cause errors.
 function openConfigModal() {
-  document.getElementById('cfg-url').value = supabaseConfig.url;
-  document.getElementById('cfg-key').value = supabaseConfig.key;
-  document.getElementById('config-modal').style.display = 'flex';
+  showToast('Supabase is pre‑configured. No changes needed.', 'info');
 }
-function closeConfigModal() { document.getElementById('config-modal').style.display = 'none'; }
-function saveConfig() {
-  const url = document.getElementById('cfg-url').value.trim();
-  const key = document.getElementById('cfg-key').value.trim();
-  if (!url || !key) { showToast('Please fill in both fields', 'error'); return; }
-  supabaseConfig = { url, key };
-  localStorage.setItem('cx_sb_config', JSON.stringify(supabaseConfig));
-  closeConfigModal();
-  document.getElementById('db-status-label').textContent = 'Supabase';
-  showToast('Connected to Supabase', 'success');
-  LEVELS.forEach(l => loadData(l));
-}
-function clearConfig() {
-  supabaseConfig = { url: '', key: '' };
-  localStorage.removeItem('cx_sb_config');
-  closeConfigModal();
-  document.getElementById('db-status-label').textContent = 'Local Mode';
-  showToast('Switched to local storage', 'info');
-  LEVELS.forEach(l => loadData(l));
-}
-function loadStoredConfig() {
-  try {
-    const stored = localStorage.getItem('cx_sb_config');
-    if (stored) { supabaseConfig = JSON.parse(stored); if (supabaseConfig.url) document.getElementById('db-status-label').textContent = 'Supabase'; }
-  } catch {}
-}
+function closeConfigModal() {}
+function saveConfig() {}
+function clearConfig() {}
+function loadStoredConfig() {} // not used
 
 // ─── Export CSV ────────────────────────────────────────────────────
 function exportCSV() {
@@ -400,8 +393,3 @@ function showToast(msg, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
-
-// Close modal on overlay click
-document.getElementById('config-modal')?.addEventListener('click', function(e) {
-  if (e.target === this) closeConfigModal();
-});
