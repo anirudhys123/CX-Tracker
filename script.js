@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await loadData(l);
     loadedCount++;
     if (loadedCount === LEVELS.length) {
-      updateStats();  // all levels loaded, update stats once
+      updateStats();
     }
   });
   
@@ -98,7 +98,7 @@ function buildTableHead(level) {
 function addRow(level) {
   const newId = Date.now() + Math.random() * 10000;
   const newRow = {
-    _rid: newId,
+    _rid: newId,               // temporary local ID
     sno: tableData[level].length + 1,
     equipment_nomenclature: '',
     package: '',
@@ -116,12 +116,34 @@ function addRow(level) {
   showToast(`New row added to ${level}`, 'success');
 }
 
-// ─── Delete row ─────────────────────────────────────────────────────
-function deleteRow(level, rid) {
+// ─── Delete row (local + Supabase) ─────────────────────────────────
+async function deleteRow(level, rid) {
+  // Find the row to delete
+  const rowToDelete = tableData[level].find(r => r._rid === rid);
+  if (!rowToDelete) return;
+
+  // If Supabase is connected and the row has a database ID, delete from Supabase first
+  if (supabaseConfig.url && supabaseConfig.key && rowToDelete.id) {
+    try {
+      const { url, key } = supabaseConfig;
+      const response = await fetch(`${url}/rest/v1/cx_tracker?id=eq.${rowToDelete.id}`, {
+        method: 'DELETE',
+        headers: sbHeaders(key)
+      });
+      if (!response.ok) throw new Error(await response.text());
+      showToast('Row deleted from Supabase', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to delete from Supabase: ' + e.message, 'error');
+      return; // Stop local deletion if Supabase delete fails
+    }
+  }
+
+  // Remove from local array
   tableData[level] = tableData[level].filter(r => r._rid !== rid);
   refreshDisplay();
   updateStats();
-  showToast('Row deleted', 'info');
+  if (!rowToDelete.id) showToast('Row deleted locally (not yet saved to Supabase)', 'info');
 }
 
 // ─── Render filtered table (no re-render on edit) ───────────────────
@@ -276,6 +298,7 @@ function saveToLocalStorage(level) {
   const clean = (tableData[level] || []).map(r => {
     const o = { ...r };
     delete o._rid;
+    delete o.id;   // remove any stale id
     return o;
   });
   localStorage.setItem(`cx_tracker_${level}`, JSON.stringify(clean));
@@ -301,7 +324,7 @@ function loadFromLocalStorage(level) {
   } catch (e) { console.warn(e); }
 }
 
-// ─── Supabase integration (using hardcoded credentials) ────────────
+// ─── Supabase integration ────────────────────────────────────────────
 async function saveToSupabase(level) {
   const btn = document.querySelector(`#panel-${level} .bottom-bar .btn-primary`);
   if (!btn) return;
@@ -310,13 +333,15 @@ async function saveToSupabase(level) {
   btn.disabled = true;
   try {
     const { url, key } = supabaseConfig;
+    // Delete all existing rows for this level
     await fetch(`${url}/rest/v1/cx_tracker?level=eq.${level}`, {
       method: 'DELETE', headers: sbHeaders(key)
     });
+    // Insert all current rows
     const rows = (tableData[level] || []).map(r => {
       const o = {};
       COLUMNS.forEach(c => {
-        if (!['sno', '_del', '_rid'].includes(c.key)) o[c.key] = r[c.key] || null;
+        if (!['sno', '_del', '_rid', 'id'].includes(c.key)) o[c.key] = r[c.key] || null;
       });
       o.sno = r.sno;
       o.level = level;
@@ -324,9 +349,14 @@ async function saveToSupabase(level) {
     });
     if (rows.length) {
       const res = await fetch(`${url}/rest/v1/cx_tracker`, {
-        method: 'POST', headers: { ...sbHeaders(key), 'Prefer': 'return=minimal' }, body: JSON.stringify(rows)
+        method: 'POST', headers: { ...sbHeaders(key), 'Prefer': 'return=representation' }, body: JSON.stringify(rows)
       });
       if (!res.ok) throw new Error(await res.text());
+      const insertedRows = await res.json();
+      // Update local rows with the returned IDs from Supabase
+      insertedRows.forEach((inserted, idx) => {
+        if (tableData[level][idx]) tableData[level][idx].id = inserted.id;
+      });
     }
     showToast(`${level} saved to Supabase`, 'success');
   } catch (e) { 
@@ -343,9 +373,9 @@ async function loadFromSupabase(level) {
     const res = await fetch(`${url}/rest/v1/cx_tracker?level=eq.${level}&order=sno.asc`, { headers: sbHeaders(key) });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
-    tableData[level] = data.map((r, i) => ({ ...r, _rid: i + 1 }));
+    tableData[level] = data.map((r, i) => ({ ...r, _rid: i + 1, id: r.id })); // keep Supabase id
     refreshDisplay();
-    updateStats(); // immediate update after level loads
+    updateStats();
   } catch (e) { 
     console.warn(e);
     loadFromLocalStorage(level);
