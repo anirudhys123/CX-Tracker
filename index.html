@@ -30,7 +30,7 @@
       <div class="status-dot"></div>
       <span id="db-status-label">Local Mode</span>
     </div>
-    <button class="btn btn-ghost" onclick="openConfigModal()">Configure DB</button>
+    <!-- <button class="btn btn-ghost" onclick="openConfigModal()">Configure DB</button> -->
     <button class="btn btn-ghost" onclick="exportCSV()">Export CSV</button>
   </div>
 </header>
@@ -129,7 +129,7 @@
 </main>
 
 <!-- Supabase Config Modal -->
-<div class="modal-overlay" id="config-modal" style="display:none;">
+<!-- <div class="modal-overlay" id="config-modal" style="display:none;">
   <div class="modal">
     <div class="modal-title">Supabase Configuration</div>
     <div class="modal-sub">Connect your Supabase project to persist data across sessions. Leave empty to use local storage.</div>
@@ -138,7 +138,7 @@
     <div class="form-group"><label class="form-label">Anon / Public API Key</label><input class="form-input" id="cfg-key" type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."></div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeConfigModal()">Cancel</button><button class="btn btn-ghost" onclick="clearConfig()">Clear</button><button class="btn btn-primary" onclick="saveConfig()">Connect</button></div>
   </div>
-</div>
+</div> -->
 
 <!-- Toast Container -->
 <div class="toast-container" id="toasts"></div>
