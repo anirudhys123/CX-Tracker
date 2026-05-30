@@ -2,22 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>CX Tracker — Data Center Commissioning</title>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- Header -->
 <header class="header">
   <div class="header-brand">
     <div class="brand-icon">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-        <rect x="2" y="2" width="6" height="6" stroke="#0d9488" stroke-width="1.5"/>
-        <rect x="10" y="2" width="6" height="6" stroke="#0d9488" stroke-width="1.5" opacity="0.5"/>
-        <rect x="2" y="10" width="6" height="6" stroke="#0d9488" stroke-width="1.5" opacity="0.5"/>
-        <rect x="10" y="10" width="6" height="6" stroke="#0d9488" stroke-width="1.5"/>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="3" width="6" height="6" stroke="#0d9488" stroke-width="1.5"/>
+        <rect x="11" y="3" width="6" height="6" stroke="#0d9488" stroke-width="1.5" opacity="0.5"/>
+        <rect x="3" y="11" width="6" height="6" stroke="#0d9488" stroke-width="1.5" opacity="0.5"/>
+        <rect x="11" y="11" width="6" height="6" stroke="#0d9488" stroke-width="1.5"/>
       </svg>
     </div>
     <div class="brand-text">
@@ -28,16 +27,14 @@
   <div class="header-meta">
     <div class="status-pill">
       <div class="status-dot"></div>
-      <span id="db-status-label">Local Mode</span>
+      <span id="db-status-label">Supabase</span>
     </div>
-    <!-- <button class="btn btn-ghost" onclick="openConfigModal()">Configure DB</button> -->
-    <button class="btn btn-ghost" onclick="exportCSV()">Export CSV</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">📎 Export CSV</button>
   </div>
 </header>
 
-<!-- Main -->
 <main class="main">
-  <!-- Stats -->
+  <!-- Stats Cards -->
   <div class="stats-bar">
     <div class="stat-card" style="--accent-color: var(--accent-cyan)">
       <div class="stat-label">Total Items</div>
@@ -64,7 +61,7 @@
   <!-- Filter Bar -->
   <div class="filter-bar">
     <div class="filter-group">
-      <label class="filter-label">Package:</label>
+      <label class="filter-label">Package</label>
       <select id="filter-package" class="filter-select">
         <option value="all">All Packages</option>
         <option value="HVAC">HVAC</option>
@@ -73,7 +70,15 @@
       </select>
     </div>
     <div class="filter-group">
-      <label class="filter-label">Level:</label>
+      <label class="filter-label">Floor</label>
+      <select id="filter-floor" class="filter-select">
+        <option value="all">All Floors</option>
+        <option value="07">07</option>
+        <option value="08">08</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Level</label>
       <select id="filter-level" class="filter-select">
         <option value="all">All Levels</option>
         <option value="L1">L1</option>
@@ -83,10 +88,10 @@
       </select>
     </div>
     <div class="filter-group">
-      <label class="filter-label">Search:</label>
+      <label class="filter-label">Search</label>
       <input type="text" id="filter-search" class="filter-search-input" placeholder="Equipment or remarks...">
     </div>
-    <button id="clear-filters" class="btn btn-ghost">Clear Filters</button>
+    <button id="clear-filters" class="btn btn-ghost">✖ Clear Filters</button>
   </div>
 
   <!-- Tabs Container -->
@@ -98,49 +103,36 @@
       <button class="tab-btn" data-level="L4" onclick="switchTab('L4', this)">L4 <span class="tab-count" id="count-L4">0</span></button>
     </div>
 
-    <!-- Level panels (L1 - L4) -->
+    <!-- Level Panels -->
     <div class="tab-panel active" id="panel-L1">
       <div class="toolbar">
         <div class="toolbar-left"><span class="toolbar-title">Level 1 — Commissioning Activities</span></div>
-        <div><button class="btn btn-ghost" onclick="loadData('L1')">Refresh</button><button class="btn btn-primary" onclick="addRow('L1')">Add Row</button></div>
+        <div><button class="btn btn-ghost" onclick="loadData('L1')">⟳ Refresh</button><button class="btn btn-primary" onclick="addRow('L1')">+ Add Row</button></div>
       </div>
-      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L1"></tr></thead><tbody id="tbody-L1"></tbody></table><div id="empty-L1" class="empty-state"><div class="empty-state-icon">⬡</div><div class="empty-state-text">No records yet</div><div class="empty-state-sub">Click "Add Row" to begin logging activities</div></div></div>
-      <div class="bottom-bar"><span class="row-count" id="rowcount-L1">0 records</span><button class="btn btn-primary" onclick="saveData('L1')">Save All</button></div>
+      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L1"><tr></thead><tbody id="tbody-L1"></tbody></table><div id="empty-L1" class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No records yet</div><div class="empty-state-sub">Click "Add Row" to begin logging activities</div></div></div>
+      <div class="bottom-bar"><span class="row-count" id="rowcount-L1">0 records</span><button class="btn btn-primary" onclick="saveData('L1')">💾 Save All</button></div>
     </div>
 
     <div class="tab-panel" id="panel-L2">
-      <div class="toolbar"><div class="toolbar-left"><span class="toolbar-title">Level 2 — Commissioning Activities</span></div><div><button class="btn btn-ghost" onclick="loadData('L2')">Refresh</button><button class="btn btn-primary" onclick="addRow('L2')">Add Row</button></div></div>
-      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L2"></tr></thead><tbody id="tbody-L2"></tbody></table><div id="empty-L2" class="empty-state">No records</div></div>
-      <div class="bottom-bar"><span class="row-count" id="rowcount-L2">0 records</span><button class="btn btn-primary" onclick="saveData('L2')">Save All</button></div>
+      <div class="toolbar"><div class="toolbar-left"><span class="toolbar-title">Level 2 — Commissioning Activities</span></div><div><button class="btn btn-ghost" onclick="loadData('L2')">⟳ Refresh</button><button class="btn btn-primary" onclick="addRow('L2')">+ Add Row</button></div></div>
+      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L2"><tr></thead><tbody id="tbody-L2"></tbody></table><div id="empty-L2" class="empty-state">No records</div></div>
+      <div class="bottom-bar"><span class="row-count" id="rowcount-L2">0 records</span><button class="btn btn-primary" onclick="saveData('L2')">💾 Save All</button></div>
     </div>
 
     <div class="tab-panel" id="panel-L3">
-      <div class="toolbar"><div class="toolbar-left"><span class="toolbar-title">Level 3 — Commissioning Activities</span></div><div><button class="btn btn-ghost" onclick="loadData('L3')">Refresh</button><button class="btn btn-primary" onclick="addRow('L3')">Add Row</button></div></div>
-      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L3"></tr></thead><tbody id="tbody-L3"></tbody></table><div id="empty-L3" class="empty-state">No records</div></div>
-      <div class="bottom-bar"><span class="row-count" id="rowcount-L3">0 records</span><button class="btn btn-primary" onclick="saveData('L3')">Save All</button></div>
+      <div class="toolbar"><div class="toolbar-left"><span class="toolbar-title">Level 3 — Commissioning Activities</span></div><div><button class="btn btn-ghost" onclick="loadData('L3')">⟳ Refresh</button><button class="btn btn-primary" onclick="addRow('L3')">+ Add Row</button></div></div>
+      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L3"></tr></thead><tbody id="tbody-L3"></tbody><tr><div id="empty-L3" class="empty-state">No records</div></div>
+      <div class="bottom-bar"><span class="row-count" id="rowcount-L3">0 records</span><button class="btn btn-primary" onclick="saveData('L3')">💾 Save All</button></div>
     </div>
 
     <div class="tab-panel" id="panel-L4">
-      <div class="toolbar"><div class="toolbar-left"><span class="toolbar-title">Level 4 — Commissioning Activities</span></div><div><button class="btn btn-ghost" onclick="loadData('L4')">Refresh</button><button class="btn btn-primary" onclick="addRow('L4')">Add Row</button></div></div>
-      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L4"></tr></thead><tbody id="tbody-L4"></tbody></table><div id="empty-L4" class="empty-state">No records</div></div>
-      <div class="bottom-bar"><span class="row-count" id="rowcount-L4">0 records</span><button class="btn btn-primary" onclick="saveData('L4')">Save All</button></div>
+      <div class="toolbar"><div class="toolbar-left"><span class="toolbar-title">Level 4 — Commissioning Activities</span></div><div><button class="btn btn-ghost" onclick="loadData('L4')">⟳ Refresh</button><button class="btn btn-primary" onclick="addRow('L4')">+ Add Row</button></div></div>
+      <div class="table-wrapper"><table class="cx-table"><thead><tr id="thead-L4"></tr></thead><tbody id="tbody-L4"></tbody><tr><div id="empty-L4" class="empty-state">No records</div></div>
+      <div class="bottom-bar"><span class="row-count" id="rowcount-L4">0 records</span><button class="btn btn-primary" onclick="saveData('L4')">💾 Save All</button></div>
     </div>
   </div>
 </main>
 
-<!-- Supabase Config Modal -->
-<!-- <div class="modal-overlay" id="config-modal" style="display:none;">
-  <div class="modal">
-    <div class="modal-title">Supabase Configuration</div>
-    <div class="modal-sub">Connect your Supabase project to persist data across sessions. Leave empty to use local storage.</div>
-    <div class="modal-info">ⓘ You need a Supabase table named <strong>cx_tracker</strong> with columns matching CX fields plus <strong>level</strong> (TEXT) and <strong>id</strong> (UUID).</div>
-    <div class="form-group"><label class="form-label">Supabase URL</label><input class="form-input" id="cfg-url" type="url" placeholder="https://your-project.supabase.co"></div>
-    <div class="form-group"><label class="form-label">Anon / Public API Key</label><input class="form-input" id="cfg-key" type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."></div>
-    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeConfigModal()">Cancel</button><button class="btn btn-ghost" onclick="clearConfig()">Clear</button><button class="btn btn-primary" onclick="saveConfig()">Connect</button></div>
-  </div>
-</div> -->
-
-<!-- Toast Container -->
 <div class="toast-container" id="toasts"></div>
 
 <script src="script.js"></script>

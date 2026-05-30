@@ -1,5 +1,5 @@
 // ============================================================
-//  HARDCODED SUPABASE CREDENTIALS – Replace with your own
+//  SUPABASE CREDENTIALS (replace with your own if needed)
 // ============================================================
 const SUPABASE_URL = 'https://dgwdagwqhccxceqpwbsv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4ppZPRbbipi079J3W5O6aQ_tiXhmcr6';
@@ -11,157 +11,84 @@ const LEVELS = ['L1', 'L2', 'L3', 'L4'];
 let activeLevel = 'L1';
 let tableData = { L1: [], L2: [], L3: [], L4: [] };
 let supabaseConfig = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY };
-
-// Filter state
 let currentPackageFilter = 'all';
+let currentFloorFilter = 'all';
 let currentSearchTerm = '';
 
 const COLUMNS = [
-  { key: 'sno', label: 'S.No', type: 'sno', width: '52px' },
+  { key: 'sno', label: 'S.No', type: 'sno', width: '50px' },
   { key: 'equipment_nomenclature', label: 'Equipment Nomenclature', type: 'text', width: '180px' },
   { key: 'package', label: 'Package', type: 'select', width: '110px', options: ['', 'HVAC', 'Electrical', 'ELV'] },
-  { key: 'target_date', label: 'Target Date', type: 'date', width: '140px' },
-  { key: 'actual_date', label: 'Actual Date', type: 'date', width: '140px' },
-  { key: 'remarks', label: 'Remarks', type: 'text', width: '160px' },
+  { key: 'floor', label: 'Floor', type: 'select', width: '80px', options: ['', '07', '08'] },
+  { key: 'target_date', label: 'Target Date', type: 'date', width: '130px' },
+  { key: 'actual_date', label: 'Actual Date', type: 'date', width: '130px' },
+  { key: 'remarks', label: 'Remarks', type: 'textarea', width: '240px' },
   { key: 'site_progress', label: 'Site Progress', type: 'status', width: '120px' },
   { key: 'procure_submission', label: 'Procure Submission', type: 'status', width: '140px' },
   { key: 'procure_approval', label: 'Procure Approval', type: 'status', width: '140px' },
   { key: 'responsibility', label: 'Responsibility', type: 'text', width: '140px' },
-  { key: '_del', label: '', type: 'del', width: '44px' },
+  { key: '_del', label: '', type: 'del', width: '40px' }
 ];
 const STATUS_OPTIONS = ['Pending', 'Completed'];
 
-// ─── Init ─────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('db-status-label').textContent = 'Supabase';
-  LEVELS.forEach(l => { buildTableHead(l); });
-  
-  // Load all levels asynchronously and update stats after all are loaded
-  let loadedCount = 0;
-  LEVELS.forEach(async (l) => {
-    await loadData(l);
-    loadedCount++;
-    if (loadedCount === LEVELS.length) {
-      updateStats();
-    }
-  });
-  
-  // Filter event listeners
-  const packageSelect = document.getElementById('filter-package');
-  const levelSelect = document.getElementById('filter-level');
-  const searchInput = document.getElementById('filter-search');
-  const clearBtn = document.getElementById('clear-filters');
-
-  packageSelect?.addEventListener('change', (e) => {
-    currentPackageFilter = e.target.value;
-    refreshDisplay();
-  });
-  levelSelect?.addEventListener('change', (e) => {
-    const selectedLevel = e.target.value;
-    if (selectedLevel !== 'all') {
-      const tabBtn = Array.from(document.querySelectorAll('.tab-btn')).find(
-        btn => btn.getAttribute('onclick')?.includes(`'${selectedLevel}'`)
-      );
-      if (tabBtn) tabBtn.click();
-      levelSelect.value = 'all';
-    }
-  });
-  searchInput?.addEventListener('input', (e) => {
-    currentSearchTerm = e.target.value;
-    refreshDisplay();
-  });
-  clearBtn?.addEventListener('click', () => {
-    currentPackageFilter = 'all';
-    currentSearchTerm = '';
-    if (packageSelect) packageSelect.value = 'all';
-    if (searchInput) searchInput.value = '';
-    refreshDisplay();
-    showToast('Filters cleared', 'info');
-  });
-});
-
-// ─── Table header ───────────────────────────────────────────────────
+// ============================================================
+//  HELPERS
+// ============================================================
 function buildTableHead(level) {
   const tr = document.getElementById(`thead-${level}`);
   if (!tr) return;
   tr.innerHTML = '';
   COLUMNS.forEach(col => {
     const th = document.createElement('th');
-    if (col.type === 'sno') th.className = 'th-sno';
     th.style.minWidth = col.width;
     th.textContent = col.label;
     tr.appendChild(th);
   });
 }
 
-// ─── Add row ────────────────────────────────────────────────────────
-function addRow(level) {
-  const newId = Date.now() + Math.random() * 10000;
-  const newRow = {
-    _rid: newId,               // temporary local ID
-    sno: tableData[level].length + 1,
-    equipment_nomenclature: '',
-    package: '',
-    target_date: '',
-    actual_date: '',
-    remarks: '',
-    site_progress: 'Pending',
-    procure_submission: 'Pending',
-    procure_approval: 'Pending',
-    responsibility: ''
-  };
-  tableData[level].push(newRow);
-  refreshDisplay();
-  updateStats();
-  showToast(`New row added to ${level}`, 'success');
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toasts');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${msg}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'fadeOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 2800);
 }
 
-// ─── Delete row (local + Supabase) ─────────────────────────────────
-async function deleteRow(level, rid) {
-  // Find the row to delete
-  const rowToDelete = tableData[level].find(r => r._rid === rid);
-  if (!rowToDelete) return;
-
-  // If Supabase is connected and the row has a database ID, delete from Supabase first
-  if (supabaseConfig.url && supabaseConfig.key && rowToDelete.id) {
-    try {
-      const { url, key } = supabaseConfig;
-      const response = await fetch(`${url}/rest/v1/cx_tracker?id=eq.${rowToDelete.id}`, {
-        method: 'DELETE',
-        headers: sbHeaders(key)
-      });
-      if (!response.ok) throw new Error(await response.text());
-      showToast('Row deleted from Supabase', 'success');
-    } catch (e) {
-      console.error(e);
-      showToast('Failed to delete from Supabase: ' + e.message, 'error');
-      return; // Stop local deletion if Supabase delete fails
-    }
-  }
-
-  // Remove from local array
-  tableData[level] = tableData[level].filter(r => r._rid !== rid);
-  refreshDisplay();
-  updateStats();
-  if (!rowToDelete.id) showToast('Row deleted locally (not yet saved to Supabase)', 'info');
+function updateStats() {
+  let total = 0, completed = 0, pending = 0;
+  LEVELS.forEach(level => {
+    const rows = tableData[level] || [];
+    total += rows.length;
+    rows.forEach(r => {
+      if (r.site_progress === 'Completed') completed++;
+      else pending++;
+    });
+  });
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-completed').textContent = completed;
+  document.getElementById('stat-pending').textContent = pending;
 }
 
-// ─── Render filtered table (no re-render on edit) ───────────────────
-function refreshDisplay() { applyFiltersAndRender(); }
+function refreshDisplay() {
+  applyFiltersAndRender();
+}
 
 function applyFiltersAndRender() {
   const level = activeLevel;
-  const fullData = tableData[level] || [];
-  let filtered = [...fullData];
-
-  if (currentPackageFilter !== 'all') {
-    filtered = filtered.filter(row => row.package === currentPackageFilter);
-  }
+  let filtered = [...(tableData[level] || [])];
+  if (currentPackageFilter !== 'all')
+    filtered = filtered.filter(r => r.package === currentPackageFilter);
+  if (currentFloorFilter !== 'all')
+    filtered = filtered.filter(r => r.floor === currentFloorFilter);
   if (currentSearchTerm) {
     const term = currentSearchTerm.toLowerCase();
-    filtered = filtered.filter(row =>
-      (row.equipment_nomenclature && row.equipment_nomenclature.toLowerCase().includes(term)) ||
-      (row.remarks && row.remarks.toLowerCase().includes(term))
+    filtered = filtered.filter(r =>
+      (r.equipment_nomenclature || '').toLowerCase().includes(term) ||
+      (r.remarks || '').toLowerCase().includes(term)
     );
   }
   renderFilteredTable(level, filtered);
@@ -184,25 +111,29 @@ function renderFilteredTable(level, filteredRows) {
     return;
   }
   if (emptyDiv) emptyDiv.style.display = 'none';
-
   tbody.innerHTML = '';
+
   filteredRows.forEach((row, idx) => {
     const tr = document.createElement('tr');
-    const displaySno = idx + 1;
-
     COLUMNS.forEach(col => {
       const td = document.createElement('td');
-
       if (col.type === 'sno') {
-        td.className = 'td-sno';
-        td.textContent = displaySno;
+        td.textContent = idx + 1;
       } else if (col.type === 'del') {
-        td.style.textAlign = 'center';
         const btn = document.createElement('button');
         btn.className = 'del-btn';
-        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M5 3V2h2v1M3 3l.5 7h5L9 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+        btn.innerHTML = '🗑';
+        btn.title = 'Delete row';
         btn.onclick = () => deleteRow(level, row._rid);
         td.appendChild(btn);
+      } else if (col.key === 'remarks') {
+        const textarea = document.createElement('textarea');
+        textarea.className = 'cell-input remarks-textarea';
+        textarea.rows = 2;
+        textarea.placeholder = 'Add remarks (multi‑line)';
+        textarea.value = row.remarks || '';
+        textarea.oninput = (e) => { row.remarks = e.target.value; updateStats(); };
+        td.appendChild(textarea);
       } else if (col.type === 'text') {
         const inp = document.createElement('input');
         inp.type = 'text';
@@ -221,11 +152,11 @@ function renderFilteredTable(level, filteredRows) {
         const sel = document.createElement('select');
         sel.className = 'cell-input';
         col.options.forEach(opt => {
-          const o = document.createElement('option');
-          o.value = opt;
-          o.textContent = opt || '— select —';
-          if (row[col.key] === opt) o.selected = true;
-          sel.appendChild(o);
+          const option = document.createElement('option');
+          option.value = opt;
+          option.textContent = opt || '—';
+          if (row[col.key] === opt) option.selected = true;
+          sel.appendChild(option);
         });
         sel.onchange = (e) => { row[col.key] = e.target.value; };
         td.appendChild(sel);
@@ -233,18 +164,16 @@ function renderFilteredTable(level, filteredRows) {
         const sel = document.createElement('select');
         sel.className = 'cell-input';
         STATUS_OPTIONS.forEach(opt => {
-          const o = document.createElement('option');
-          o.value = opt;
-          o.textContent = opt;
-          if (row[col.key] === opt) o.selected = true;
-          sel.appendChild(o);
+          const option = document.createElement('option');
+          option.value = opt;
+          option.textContent = opt;
+          if (row[col.key] === opt) option.selected = true;
+          sel.appendChild(option);
         });
         sel.onchange = (e) => {
           row[col.key] = e.target.value;
-          applyStatusColor(sel, e.target.value);
           updateStats();
         };
-        applyStatusColor(sel, row[col.key]);
         td.appendChild(sel);
       }
       tr.appendChild(td);
@@ -253,11 +182,150 @@ function renderFilteredTable(level, filteredRows) {
   });
 }
 
-function applyStatusColor(el, val) {
-  if (el) el.style.color = val === 'Completed' ? 'var(--accent-green)' : 'var(--accent-amber)';
+// ============================================================
+//  CRUD
+// ============================================================
+function addRow(level) {
+  const newId = Date.now() + Math.random();
+  const newRow = {
+    _rid: newId,
+    sno: (tableData[level]?.length || 0) + 1,
+    equipment_nomenclature: '',
+    package: '',
+    floor: '',
+    target_date: '',
+    actual_date: '',
+    remarks: '',
+    site_progress: 'Pending',
+    procure_submission: 'Pending',
+    procure_approval: 'Pending',
+    responsibility: ''
+  };
+  tableData[level].push(newRow);
+  refreshDisplay();
+  updateStats();
+  showToast(`New row added to ${level}`, 'success');
 }
 
-// ─── Switch tab ────────────────────────────────────────────────────
+async function deleteRow(level, rid) {
+  const row = tableData[level].find(r => r._rid === rid);
+  if (!row) return;
+  if (supabaseConfig.url && supabaseConfig.key && row.id) {
+    try {
+      await fetch(`${supabaseConfig.url}/rest/v1/cx_tracker?id=eq.${row.id}`, {
+        method: 'DELETE',
+        headers: sbHeaders(supabaseConfig.key)
+      });
+      showToast('Deleted from Supabase', 'success');
+    } catch (e) {
+      showToast('Supabase delete failed, removing locally', 'error');
+    }
+  }
+  tableData[level] = tableData[level].filter(r => r._rid !== rid);
+  refreshDisplay();
+  updateStats();
+  showToast('Row removed', 'info');
+}
+
+// ============================================================
+//  SUPABASE & LOCALSTORAGE
+// ============================================================
+function sbHeaders(key) {
+  return {
+    'apikey': key,
+    'Authorization': `Bearer ${key}`,
+    'Content-Type': 'application/json'
+  };
+}
+
+async function saveToSupabase(level) {
+  const btn = document.querySelector(`#panel-${level} .bottom-bar .btn-primary`);
+  if (btn) { btn.innerHTML = '<span class="spinner"></span> Saving...'; btn.disabled = true; }
+  try {
+    const { url, key } = supabaseConfig;
+    await fetch(`${url}/rest/v1/cx_tracker?level=eq.${level}`, { method: 'DELETE', headers: sbHeaders(key) });
+    const rowsToInsert = (tableData[level] || []).map(r => {
+      const obj = {};
+      COLUMNS.forEach(c => {
+        if (!['sno', '_del', '_rid', 'id'].includes(c.key) && c.key !== '_del')
+          obj[c.key] = r[c.key] !== undefined ? r[c.key] : null;
+      });
+      obj.sno = r.sno;
+      obj.level = level;
+      return obj;
+    });
+    if (rowsToInsert.length) {
+      const res = await fetch(`${url}/rest/v1/cx_tracker`, {
+        method: 'POST',
+        headers: { ...sbHeaders(key), 'Prefer': 'return=representation' },
+        body: JSON.stringify(rowsToInsert)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const inserted = await res.json();
+      inserted.forEach((ins, idx) => {
+        if (tableData[level][idx]) tableData[level][idx].id = ins.id;
+      });
+    }
+    showToast(`${level} saved to Supabase`, 'success');
+  } catch (e) {
+    console.error(e);
+    saveToLocalStorage(level);
+    showToast('Supabase failed → saved to Local Storage', 'error');
+  } finally {
+    if (btn) { btn.innerHTML = '💾 Save All'; btn.disabled = false; }
+  }
+}
+
+function saveToLocalStorage(level) {
+  const clean = (tableData[level] || []).map(r => {
+    const { _rid, id, ...rest } = r;
+    return rest;
+  });
+  localStorage.setItem(`cx_tracker_${level}`, JSON.stringify(clean));
+  showToast(`${level} saved to Local Storage`, 'info');
+}
+
+async function loadFromSupabase(level) {
+  try {
+    const res = await fetch(`${supabaseConfig.url}/rest/v1/cx_tracker?level=eq.${level}&order=sno.asc`, {
+      headers: sbHeaders(supabaseConfig.key)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    tableData[level] = data.map((r, i) => ({ ...r, _rid: Date.now() + i + Math.random(), id: r.id }));
+    refreshDisplay();
+    updateStats();
+  } catch (e) {
+    console.warn(e);
+    loadFromLocalStorage(level);
+  }
+}
+
+function loadFromLocalStorage(level) {
+  try {
+    const raw = localStorage.getItem(`cx_tracker_${level}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      tableData[level] = parsed.map((r, i) => ({ ...r, _rid: Date.now() + i + Math.random() }));
+      refreshDisplay();
+      updateStats();
+    }
+  } catch (e) { console.warn(e); }
+}
+
+async function saveData(level) {
+  if (supabaseConfig.url && supabaseConfig.key) await saveToSupabase(level);
+  else saveToLocalStorage(level);
+}
+
+async function loadData(level) {
+  if (supabaseConfig.url && supabaseConfig.key) await loadFromSupabase(level);
+  else loadFromLocalStorage(level);
+}
+
+// ============================================================
+//  UI ACTIONS
+// ============================================================
 function switchTab(level, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -268,145 +336,18 @@ function switchTab(level, btn) {
   refreshDisplay();
 }
 
-// ─── Stats ──────────────────────────────────────────────────────────
-function updateStats() {
-  let total = 0, completed = 0, pending = 0;
-  LEVELS.forEach(l => {
-    const rows = tableData[l] || [];
-    total += rows.length;
-    rows.forEach(r => {
-      if (r.site_progress === 'Completed') completed++;
-      else pending++;
-    });
-  });
-  document.getElementById('stat-total').textContent = total;
-  document.getElementById('stat-completed').textContent = completed;
-  document.getElementById('stat-pending').textContent = pending;
-}
-
-// ─── Save / Load (always try Supabase first, fallback to local) ────
-async function saveData(level) {
-  if (supabaseConfig.url && supabaseConfig.key) {
-    await saveToSupabase(level);
-  } else {
-    saveToLocalStorage(level);
-    showToast('Saved to local storage', 'success');
-  }
-}
-
-function saveToLocalStorage(level) {
-  const clean = (tableData[level] || []).map(r => {
-    const o = { ...r };
-    delete o._rid;
-    delete o.id;   // remove any stale id
-    return o;
-  });
-  localStorage.setItem(`cx_tracker_${level}`, JSON.stringify(clean));
-}
-
-async function loadData(level) {
-  if (supabaseConfig.url && supabaseConfig.key) {
-    await loadFromSupabase(level);
-  } else {
-    loadFromLocalStorage(level);
-  }
-}
-
-function loadFromLocalStorage(level) {
-  try {
-    const raw = localStorage.getItem(`cx_tracker_${level}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      tableData[level] = parsed.map((r, i) => ({ ...r, _rid: i + 1 }));
-      refreshDisplay();
-      updateStats();
-    }
-  } catch (e) { console.warn(e); }
-}
-
-// ─── Supabase integration ────────────────────────────────────────────
-async function saveToSupabase(level) {
-  const btn = document.querySelector(`#panel-${level} .bottom-bar .btn-primary`);
-  if (!btn) return;
-  const orig = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner"></span> Saving...';
-  btn.disabled = true;
-  try {
-    const { url, key } = supabaseConfig;
-    // Delete all existing rows for this level
-    await fetch(`${url}/rest/v1/cx_tracker?level=eq.${level}`, {
-      method: 'DELETE', headers: sbHeaders(key)
-    });
-    // Insert all current rows
-    const rows = (tableData[level] || []).map(r => {
-      const o = {};
-      COLUMNS.forEach(c => {
-        if (!['sno', '_del', '_rid', 'id'].includes(c.key)) o[c.key] = r[c.key] || null;
-      });
-      o.sno = r.sno;
-      o.level = level;
-      return o;
-    });
-    if (rows.length) {
-      const res = await fetch(`${url}/rest/v1/cx_tracker`, {
-        method: 'POST', headers: { ...sbHeaders(key), 'Prefer': 'return=representation' }, body: JSON.stringify(rows)
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const insertedRows = await res.json();
-      // Update local rows with the returned IDs from Supabase
-      insertedRows.forEach((inserted, idx) => {
-        if (tableData[level][idx]) tableData[level][idx].id = inserted.id;
-      });
-    }
-    showToast(`${level} saved to Supabase`, 'success');
-  } catch (e) { 
-    console.error(e);
-    showToast('Save failed, using local storage', 'error');
-    saveToLocalStorage(level);
-  }
-  finally { btn.innerHTML = orig; btn.disabled = false; }
-}
-
-async function loadFromSupabase(level) {
-  try {
-    const { url, key } = supabaseConfig;
-    const res = await fetch(`${url}/rest/v1/cx_tracker?level=eq.${level}&order=sno.asc`, { headers: sbHeaders(key) });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    tableData[level] = data.map((r, i) => ({ ...r, _rid: i + 1, id: r.id })); // keep Supabase id
-    refreshDisplay();
-    updateStats();
-  } catch (e) { 
-    console.warn(e);
-    loadFromLocalStorage(level);
-  }
-}
-
-function sbHeaders(key) {
-  return { 'apikey': key, 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
-}
-
-// ─── Config modal stubs ────────────────────────────────────────────
-function openConfigModal() {
-  showToast('Supabase is pre‑configured. No changes needed.', 'info');
-}
-function closeConfigModal() {}
-function saveConfig() {}
-function clearConfig() {}
-function loadStoredConfig() {}
-
-// ─── Export CSV ────────────────────────────────────────────────────
 function exportCSV() {
   const headers = COLUMNS.filter(c => c.type !== 'del').map(c => c.label);
   const rows = [];
   LEVELS.forEach(level => {
     (tableData[level] || []).forEach(row => {
-      const r = COLUMNS.filter(c => c.type !== 'del').map(c => {
+      const cols = COLUMNS.filter(c => c.type !== 'del').map(c => {
         if (c.type === 'sno') return row.sno;
-        const v = row[c.key] || '';
-        return `"${String(v).replace(/"/g, '""')}"`;
+        let val = row[c.key] || '';
+        if (c.key === 'remarks') val = val.replace(/\n/g, '\\n');
+        return `"${String(val).replace(/"/g, '""')}"`;
       });
-      rows.push([`"${level}"`, ...r].join(','));
+      rows.push([`"${level}"`, ...cols].join(','));
     });
   });
   const csv = ['Level,' + headers.join(','), ...rows].join('\n');
@@ -418,16 +359,43 @@ function exportCSV() {
   showToast('CSV exported', 'success');
 }
 
-// ─── Toast ─────────────────────────────────────────────────────────
-function showToast(msg, type = 'info') {
-  const icons = { success: '✓', error: '✗', info: 'ⓘ' };
-  const container = document.getElementById('toasts');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${msg}</span>`;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.style.animation = 'fadeOut 0.3s ease forwards';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-}
+// ============================================================
+//  INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('db-status-label').textContent = 'Supabase';
+  LEVELS.forEach(l => buildTableHead(l));
+  for (const level of LEVELS) await loadData(level);
+
+  // Filter listeners
+  document.getElementById('filter-package')?.addEventListener('change', e => {
+    currentPackageFilter = e.target.value;
+    refreshDisplay();
+  });
+  document.getElementById('filter-floor')?.addEventListener('change', e => {
+    currentFloorFilter = e.target.value;
+    refreshDisplay();
+  });
+  document.getElementById('filter-level')?.addEventListener('change', e => {
+    const lvl = e.target.value;
+    if (lvl !== 'all') {
+      const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick')?.includes(`'${lvl}'`));
+      if (btn) btn.click();
+      document.getElementById('filter-level').value = 'all';
+    }
+  });
+  document.getElementById('filter-search')?.addEventListener('input', e => {
+    currentSearchTerm = e.target.value;
+    refreshDisplay();
+  });
+  document.getElementById('clear-filters')?.addEventListener('click', () => {
+    currentPackageFilter = 'all';
+    currentFloorFilter = 'all';
+    currentSearchTerm = '';
+    document.getElementById('filter-package').value = 'all';
+    document.getElementById('filter-floor').value = 'all';
+    document.getElementById('filter-search').value = '';
+    refreshDisplay();
+    showToast('All filters cleared', 'info');
+  });
+});
